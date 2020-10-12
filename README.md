@@ -14,6 +14,12 @@ Change risk-free interest rate if necessary (input as %)
 
 -Plots specified options and possible profit outcomes along with normal distribution
 
-  -Profit assumption is that option will be exercised (or left alone) at/until expiration date and no earlier
+-Profit assumption is that option will be exercised (or left alone) at/until expiration date and no earlier
   
 -Displays expected profit margin utilizing normal distribution
+
+To-do:
+
+-Pull historical/ daily mentions via google
+
+-Incorparate mentions into analysis
