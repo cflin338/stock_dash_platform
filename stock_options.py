@@ -28,46 +28,23 @@
 
 """
 
-
+import datetime
 from scipy.stats import norm
 import numpy as np
 import datetime as dt
 from yahoo_fin import options
 
-
-def optimal_options_combination(ticker, date):
-    all_options = options.get_options_chain(ticker, date)
-    calls = all_options['calls'].to_dict('record')
-    puts = all_options['puts'].to_dict('record')
+def years_to_maturity_calc(date):
+    month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
+    month_today = month_int.index(date[0:date.index(' ')])+1
+    date = date[date.index(' ')+1:]
+    day_today = int(date[0:date.index(',')])
+    year_today = int(date[-4:])
+    strike_date_datetime = datetime.date(year_today, month_today, day_today)
+    tod = datetime.date(year = datetime.datetime.today().year, month = datetime.datetime.today().month, day = datetime.datetime.today().day)
+    years_to_maturity = (strike_date_datetime-tod).days/365
     
-    good_combinations = []
-    for c in calls:
-        for p in puts:
-            
-            #####
-            call_price =  np.mean([c['Bid'],c['Ask'], c['Last Price']])
-            put_price = np.mean([p['Bid'], p['Ask'], p['Last Price']])
-            
-            total_option_cost = call_price + put_price
-            
-            call_strike_price = c['Strike']
-            put_strike_price = p['Strike']
-            
-            c_xval = [0, call_strike_price, call_strike_price + call_price, call_strike_price * 1.5]
-            p_xval = [0, max(0, put_strike_price - put_price), put_strike_price, put_strike_price*1.5]
-            
-            combined_xval = np.sort(np.unique(np.array(c_xval+p_xval)))
-            overall_profit = []
-            
-            for v in combined_xval:
-                overall_profit.append(max(v-call_strike_price,0) + max(put_strike_price-v,0) - total_option_cost)
-            
-            if np.min(overall_profit)>1:
-                good_combinations.append({'profit': [profit_x_vals, overall_profit], 'call': c, 'put': p})
-    return good_combinations
-            
-            
-            
+    return years_to_maturity
 
 def option_breakdown(string):
     #symbol (max 6 char), Yr (YY), Mo (MM), Day (DD), C/P, Strike Price (_____.___)
@@ -187,26 +164,97 @@ def bulk_calc(all_dates,all_strikes, current_price, rate, IV_list):
     
     return {'call':{'price': all_call_prices, 'greeks': all_call_greeks},
             'put':{'price': all_put_prices, 'greeks': all_put_greeks}}
+
+def optimal_options_combination(ticker, date, price_today,risk_free_rate):
+    all_options = options.get_options_chain(ticker, date)
+    calls = all_options['calls'].to_dict('record')
+    puts = all_options['puts'].to_dict('record')
+    
+    """
+    month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
+    month_today = month_int.index(date[0:date.index(' ')])+1
+    date = date[date.index(' ')+1:]
+    day_today = int(date[0:date.index(',')])
+    year_today = int(date[-4:])
+    strike_date_datetime = datetime.date(year_today, month_today, day_today)
+    tod = datetime.date(year = datetime.datetime.today().year, month = datetime.datetime.today().month, day = datetime.datetime.today().day)
+    years_to_maturity = (strike_date_datetime-tod).days/365
+    """
+    years_to_maturity = years_to_maturity_calc(date)
+    
+    good_combinations = []
+    for c in calls:
+        for p in puts:
+            
+            #####
+            call_iv = float(c['Implied Volatility'][0:-1].replace(',',''))/100
+            put_iv = float(p['Implied Volatility'][0:-1].replace(',',''))/100
+            
+            
+            call_strike_price = c['Strike']
+            put_strike_price = p['Strike']
+            
+            call_option_price = round(option_price(price_today, 
+                                              call_strike_price, years_to_maturity, 
+                                              call_iv,
+                                              risk_free_rate)['call'],2)
+            
+            #call_option_price = np.max([c['Last Price'], c['Bid'], c['Ask']])
+            
+            put_option_price = round(option_price(price_today, 
+                                              put_strike_price, years_to_maturity, 
+                                              put_iv,
+                                              risk_free_rate)['put'],2)
+            
+            #put_option_price = np.max([p['Last Price'], p['Bid'], p['Ask']])
+            
+            if (c==20) & (p == 25):
+                print([call_option_price, put_option_price])
+            
+            total_option_cost = call_option_price + put_option_price
+            
+            c_xval = [0, call_strike_price, call_strike_price + call_option_price, call_strike_price * 1.5]
+            p_xval = [0, max(0, put_strike_price - put_option_price), put_strike_price, put_strike_price*1.5]
+            
+            combined_xval = np.sort(np.unique([0, call_strike_price, call_strike_price+call_option_price, max(call_strike_price *1.5, (call_strike_price+call_option_price)*1.2),
+                                     max(0,put_strike_price-put_option_price), put_strike_price, put_strike_price*1.5]))
+            
+#            combined_xval = np.sort(np.unique(np.array(c_xval+p_xval)))
+            overall_profit = []
+            
+            for v in combined_xval:
+                
+                temp_prof = 0
+                if v<=call_strike_price:
+                    temp_prof-=call_strike_price
+                else:
+                    temp_prof+=(v-call_strike_price)
+                if v>=put_strike_price:
+                    temp_prof-=put_strike_price
+                else:
+                    temp_prof+=(put_strike_price-v)
+                overall_profit.append(max(v-call_strike_price,0) + max(put_strike_price-v,0) - total_option_cost)
+            
+            if np.min(overall_profit)>1:
+                good_combinations.append({'profit': [combined_xval, overall_profit], 'call': c, 'put': p})
+    return good_combinations
+            
+            
+#from yahoo_fin import stock_info as si
+#res = optimal_options_combination('aapl', 'November 20, 2020', si.get_live_price('aapl'), .0069)
+
+
     
 """
-ticker = 'tsla'
-doe = 1/365
-strike = 405
-rate = .69 #risk free interest rate
-stock_price = si.get_live_price(ticker)
+----daily scan----
 
-volatility = float(si.get_stats(ticker)['Value'][0]) #assuming that beta is first row in table
-
-print('{}: {}'.format(si.get_stats(ticker)['Attribute'][0],volatility))
-print('current price: {}'.format(stock_price))
-print('strike price: {}'.format(strike))
-print('years to expiration: {}'.format(doe))
-print('assett volatility: {}'.format(volatility))
-print('interest rate: {}'.format(rate))
-
-print(option_price(stock_price,strike,doe,volatility,rate))
-print(option_greeks(stock_price,strike,doe,volatility,rate))
-
+scan for low float stocks
+    -take float / outstanding... [10]/[9]
+scan for high short %
+    -[15]; % short of float, [16] % short of outstanding
+check change in float/short% values, which stocks anewly crossed threshold, 
+    which stocks had significant changes in these values
+calculate greeks and prices for all options on specified dates/ tickers
 """
 
 """
@@ -240,12 +288,6 @@ implied volatility
 -increases in bearish market, decreases in bullish market
 - * sqrt(day/365) for time period other than 1 year
 
-
-new_option_price = old_option_price + stock_price_change * delta + 1/2 * gamma * stock_price_change ** 2 - theta * (days) + vega * implied_volatility_change
-theta = theta + days * theta_change         :::need to determine rate of change of theta; not linear
-delta = delta + gamma * stock_price_change
-
-assume that stock price does not change
 
 
 """
