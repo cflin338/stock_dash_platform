@@ -1,5 +1,6 @@
-Input single ticker \n
-Change risk-free interest rate if necessary (input as %) \n
+Input single ticker
+
+Change risk-free interest rate if necessary (input as %)
 
 -Tracks live price
 
