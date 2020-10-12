@@ -1,3 +1,7 @@
+"""
+testing git push
+"""
+
 import numpy as np
 from yahoo_fin import stock_info as si
 from plotly.subplots import make_subplots
@@ -5,7 +9,6 @@ import stock_options
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-#import plotly.express as px
 import pandas as pd
 import dash_table
 import plotly.graph_objs as go
