@@ -1,6 +1,3 @@
-"""
-testing git push
-"""
 
 import numpy as np
 from yahoo_fin import stock_info as si
