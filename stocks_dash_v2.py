@@ -5,11 +5,11 @@ import stock_options
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import plotly.express as px
+#import plotly.express as px
 import pandas as pd
 import dash_table
 import plotly.graph_objs as go
-
+import scipy.stats as stats
 from dash.dependencies import Input, Output, State
 
 import datetime
@@ -36,7 +36,7 @@ class stock_custom():
         self.risk_free_rate = rate/100
         self.ticker = new_ticker.upper()
         if (self.ticker!='') & (new_ticker!=old_ticker):
-#            self.current_price = si.get_live_price(self.ticker)
+            self.current_price = si.get_live_price(self.ticker)
             self.todays_times = [datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")[11:]]
             self.prices_today = [si.get_live_price(self.ticker)]
             self.historical = si.get_data(self.ticker)
@@ -51,6 +51,7 @@ class stock_custom():
         if self.ticker!='':
             self.todays_times.append(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")[11:])
             self.prices_today.append(si.get_live_price(self.ticker))
+            self.current_price = self.prices_today[-1]
     
     def update_options_list(self, option_type, strike, date):
         empty = {'Last Trade Date': '', 
@@ -66,7 +67,8 @@ class stock_custom():
         contract_name = stock_options.option_naming(self.ticker, strike, date, option_type)
         orig_date = date
         if contract_name not in self.observed_options:
-            #breakdown date string        
+            #breakdown date string    
+            """
             month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
             month_today = month_int.index(date[0:date.index(' ')])+1
             date = date[date.index(' ')+1:]
@@ -75,13 +77,14 @@ class stock_custom():
             strike_date_datetime = datetime.date(year_today, month_today, day_today)
             tod = datetime.date(year = datetime.datetime.today().year, month = datetime.datetime.today().month, day = datetime.datetime.today().day)
             years_to_maturity = (strike_date_datetime-tod).days/365
-            
+            """
+            years_to_maturity = stock_options.years_to_maturity_calc(date)
             #get implied volatility
             if option_type.lower()=='call':
                 df = options.get_calls(self.ticker, orig_date)
             else:
                 df = options.get_puts(self.ticker, orig_date)
-            iv = float(df.loc[df['Strike']==strike]['Implied Volatility'].to_list()[0][0:-1])/100
+            iv = float(df.loc[df['Strike']==strike]['Implied Volatility'].to_list()[0][0:-1].replace(',',''))/100
     
             #calculate greeks        
             grks = stock_options.option_greeks(self.prices_today[-1], 
@@ -100,11 +103,15 @@ class stock_custom():
             
             opt['Value'] = '${}'.format(price)
             opt['Type'] = option_type
+            opt['Implied Vol'] = '%{}'.format(np.round(iv*100,4))
             opt.update(grks)
             self.observed_options[contract_name] = opt
         return self.observed_options
         
-    
+    """
+    ###
+    #currently unused
+    ###
     def add_observed_option(self, option_type, strike, date, greeks):
         new_opt = {'type': option_type,
                     'strike':strike,
@@ -120,16 +127,16 @@ class stock_custom():
                     'greeks': greeks}
         if new_opt in self.observed_options:
             self.observed_options.remove(new_opt)
-                    
+    """
     
     
 """
 option_price(stock_price, strike_price, years_to_maturity,  IV, rate)
 option_breakdown(string)
+
 option_greeks(stock_price, strike_price, years_to_maturity, volatility, rate)
 bulk_calc(all_dates,all_strikes, current_price, rate, IV_list)
     
-
 intrinsic value: max(0, (current_price - strike_price)*(-1)**(option_type == 'put'))
 time value: option_price - intrinsic value
 """
@@ -137,7 +144,6 @@ time value: option_price - intrinsic value
 examined_stock = stock_custom()
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
 
 app.layout = html.Div(children = [
     html.H3("Ticker Name and Risk Free Interest Rate"),
@@ -284,6 +290,7 @@ app.layout = html.Div(children = [
                                        {'name': 'Strike Price', 'id': 'Strike Price'},
                                        {'name':'Value', 'id': 'Value'},
                                        {'name':'Type', 'id': 'Type'},
+                                       {'name': 'Implied Vol', 'id': 'Implied Vol'},
                                        {'name':'delta', 'id':'delta'}, 
                                        {'name':'gamma', 'id':'gamma'}, 
                                        {'name':'theta', 'id':'theta'}, 
@@ -294,6 +301,7 @@ app.layout = html.Div(children = [
                                      'Strike Price': '',
                                      'Value': '',
                                      'Type': '',
+                                     'Implied Vol': '',
                                      'delta':'', 
                                      'gamma': '', 
                                      'theta':'',
@@ -308,9 +316,14 @@ app.layout = html.Div(children = [
         html.Div(children = [dcc.Dropdown(id = 'options-to-display-dropdown',placeholder = 'Select Options To Plot', 
                      multi = True, clearable = True)], className = 'three columns'),
         html.Button(id = 'plot-options-possibilities-button', n_clicks = 0, children = 'Plot Projections'),
+        html.Div(id = 'projected-pl-display'),
         dcc.Graph(id = 'options-plot-overlay' )
         ],
-        className = 'row')
+        className = 'row'),
+    html.Div(children = [
+        html.Div(children = [
+            html.Button(id = 'search-contract-combinations',children = 'Check possible C/P combinations for Profit'),
+            ])])
 
 
 ])
@@ -324,13 +337,15 @@ app.layout = html.Div(children = [
 #initiation: press 'plot options possiblities' button option(s) selected
 #
 #-----------------------------------------------------------------------------------
-@app.callback(Output(component_id = 'options-plot-overlay', component_property = 'figure'),
+@app.callback([Output(component_id = 'options-plot-overlay', component_property = 'figure'),
+               Output(component_id = 'projected-pl-display', component_property = 'children')],
               Input(component_id = 'plot-options-possibilities-button', component_property = 'n_clicks'),
               State(component_id = 'options-to-display-dropdown', component_property = 'value'))
 
 def display_options_profitabilities_plot(clicks, values):
     fig = make_subplots(rows=1, cols=2, x_title = 'Stock Price($)',y_title = 'Profit($)',
-                    subplot_titles = ['Contract(s) Profit/Loss($)', 'Overall Profit/Loss($)'])
+                    subplot_titles = ['Contract(s) Profit/Loss($)', 'Overall Profit/Loss($)'],
+                    specs = [[{"secondary_y": True}, {"secondary_y": True}],])
     if (values is None) | (values==[]):
         fig.add_scatter(x = [-.05,1], y = [0, 0], mode = 'lines', marker = dict(color = 'Grey'),
                         row = 1, col = 1, showlegend=False)
@@ -340,19 +355,26 @@ def display_options_profitabilities_plot(clicks, values):
                         row = 1, col = 2, showlegend=False)
         fig.add_scatter(x = [0,0], y = [-.05, 1], mode = 'lines', marker = dict(color = 'Grey'), 
                         row = 1, col = 2, showlegend=False)
-        return fig
+        return fig,''
     else:
         #plot individual options
         total_option_cost = 0
         
-        xlist = []
+        xlist = [0]
         ylist = []
         typelist = []
         pricelist = []
         strikepricelist = []
+        
+        sigma_list = []
+        
         for v in values:
             dat = examined_stock.observed_options[v]
+            date = dat['Expir Date']
             
+            years_to_maturity = stock_options.years_to_maturity_calc(date)
+            sigma_list.append(float(dat['Implied Vol'][1:])/100*examined_stock.current_price*np.sqrt(years_to_maturity))
+
             option_price = float(dat['Value'][1:])
             pricelist.append(option_price)
             total_option_cost+=option_price
@@ -362,33 +384,41 @@ def display_options_profitabilities_plot(clicks, values):
             option_strike_price = float(dat['Strike Price'][1:])
             strikepricelist.append(option_strike_price)
             
-            xval = [0, max(0,option_strike_price - option_price), option_strike_price, 
-                    option_strike_price + option_price, option_strike_price * 1.5]
-            xlist.append(xval)
-        xvals_for_profits = np.sort(np.unique(np.array(xlist).flatten()))
+            #this is unnecessary
+#            xval = [0, max(0,option_strike_price - option_price), option_strike_price, 
+#                    option_strike_price + option_price, option_strike_price * 1.5]
+#            xlist.append(xval)
+            xlist.append(option_strike_price+option_price)
+            xlist.append(option_strike_price*1.5)
+            xlist.append((option_strike_price+option_price)*1.1)
+        
+#        minX = np.min(np.array(xlist).flatten())
+        minX = np.min(np.array(xlist))
+#        maxX = np.max(np.array(xlist).flatten())
+        maxX = np.max(np.array(xlist))
+        
+#        xvals_for_profits = np.sort(np.unique(np.array(xlist).flatten()))
+        xvals_for_profits = np.linspace(minX,maxX, 200)
         for p,s,t in zip(pricelist, strikepricelist,typelist):
             if t.lower()=='call':
                 ylist.append([max(-p, x - s - p) for x in xvals_for_profits])
             else:
                 ylist.append([max(-p, s - x - p) for x in xvals_for_profits])
                 
-        for ind in range(len(xlist)):
-            fig.add_scatter(x =xvals_for_profits ,y=ylist[ind], mode="lines + markers",
+        for ind in range(len(values)):
+            fig.add_scatter(x =xvals_for_profits ,y=ylist[ind], mode="lines",
                             marker=dict(size=5, color="LightSeaGreen"),name = values[ind],row=1, col=1)
             
-        #calculate min/maxes to for axis and to extend any necessary arrays
-        minX = np.min(np.array(xlist).flatten())
-        maxX = np.max(np.array(xlist).flatten())
 
         #calculate profits
         profits = sum([np.array(i) for i in ylist])
         
-        minY = np.min(np.array(profits).flatten())
-        maxY = np.max(np.array(profits).flatten())
+        minY = min(np.min(profits),np.min(np.array(ylist).flatten()))
+        maxY = max(np.max(np.array(ylist).flatten()),np.max(profits))
         
         #plot profit
-        fig.add_scatter(x = xvals_for_profits, y = profits, mode="lines + markers",
-                        marker=dict(size=5, color="MediumPurple"),name="P/L", row=1, col=2)
+        fig.add_scatter(x = xvals_for_profits, y = profits, mode="lines",
+                        marker=dict(size=5, color="MediumPurple"),name="P/L", row=1, col=2, secondary_y = False)
  
         #plot axis
         fig.add_scatter(x = [minX-.1,maxX+.1], y = [0, 0], mode = 'lines', marker = dict(color = 'Black'),
@@ -396,13 +426,28 @@ def display_options_profitabilities_plot(clicks, values):
         fig.add_scatter(x = [minX-.1,minX-.1], y = [minY-.1, maxY+.1], mode = 'lines', marker = dict(color = 'Black'), 
                         row = 1, col = 1, showlegend=False)
         fig.add_scatter(x = [minX-.1,maxX+.1], y = [0, 0], mode = 'lines', marker = dict(color = 'Black'), 
-                        row = 1, col = 2, showlegend=False)
+                        row = 1, col = 2, showlegend=False, secondary_y = False)
         fig.add_scatter(x = [minX-.1,minX-.1], y = [minY-.1, maxY+.1], mode = 'lines', marker = dict(color = 'Black'), 
-                        row = 1, col = 2, showlegend=False)
+                        row = 1, col = 2, showlegend=False, secondary_y = False)
         
-        return fig
+        #plot normal distribution on second plot, but different y-axis
+        mu = examined_stock.current_price
+        sigma = np.mean(sigma_list)
+        
+#        norm_distr_x = np.linspace(0, maxX, 100)
+        norm_distr_x = xvals_for_profits
+        norm_distr_y = stats.norm.pdf(norm_distr_x,mu,sigma)
+        fig.add_scatter(x = norm_distr_x, y = norm_distr_y, mode = 'lines', marker = dict(color = 'Grey'),
+                        row = 1, col = 2, showlegend = True, secondary_y = True, name = 'Normal Distr')
+          
+        #how should standard deviation of multiple options be calculated? 
+        #what makes the most sense?
+        #for now, will simply use average of the contracts
+        
+        estimated_profit = np.sum([i*j for i,j in zip(norm_distr_y, profits)])
+        
+        return fig, 'Estimated Profit/Loss: ${}'.format(np.round(estimated_profit,2))
     
-
 #
 #-----------------------------------------------------------------------------------
 #
@@ -428,7 +473,7 @@ def display_option_greeks_table(clicks, strike,  option_type,date):
         date_len = 0
     if date is None:
         return [{'label': '', 'value': ''}],[{'Contract Name': '','Expir Date': '','Strike Price': '','Value': '',
-                 'Type': '', 'delta':'','gamma': '', 'theta':'',
+                 'Type': '', 'Implied Vol': '','delta':'','gamma': '', 'theta':'',
                  'vega':'','rho': '',}]
     else:
         dat = examined_stock.update_options_list(option_type, strike, date)
