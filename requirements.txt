@@ -137,8 +137,6 @@ python-jsonrpc-server
 python-language-server==0.31.10
 pytrends==4.7.3
 pytz
-pywin32
-pywin32-ctypes
 PyYAML
 pyzmq
 QDarkStyle
