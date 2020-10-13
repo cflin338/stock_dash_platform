@@ -86,7 +86,7 @@ nbconvert
 nbformat
 nltk
 numexpr
-numpy
+numpy==1.19.1
 numpydoc
 oauthlib
 opt-einsum
