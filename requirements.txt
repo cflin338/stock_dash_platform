@@ -167,7 +167,7 @@ tornado==6.0.4
 tqdm==4.46.1
 traitlets==4.3.3
 typed-ast==1.4.1
-ujson=
+ujson
 urllib3
 w3lib==1.22.0
 wasabi==0.7.0
