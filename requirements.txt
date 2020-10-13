@@ -150,7 +150,6 @@ requests-oauthlib==1.3.0
 retrying==1.3.3
 rope==0.17.0
 rsa
-Rtree==0.9.4
 scipy
 seaborn==0.10.0
 six==1.15.0
