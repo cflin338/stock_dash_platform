@@ -103,7 +103,7 @@ class stock_custom():
             
             opt['Value'] = '${}'.format(price)
             opt['Type'] = option_type
-            opt['Implied Vol'] = '%{}'.format(np.round(iv*100,4))
+            opt['Implied Vol'] = '{}%'.format(np.round(iv*100,4))
             opt.update(grks)
             self.observed_options[contract_name] = opt
         return self.observed_options
@@ -375,7 +375,7 @@ def display_options_profitabilities_plot(clicks, values):
             date = dat['Expir Date']
             
             years_to_maturity = stock_options.years_to_maturity_calc(date)
-            sigma_list.append(float(dat['Implied Vol'][1:])/100*examined_stock.current_price*np.sqrt(years_to_maturity))
+            sigma_list.append(float(dat['Implied Vol'][0:-1])/100*examined_stock.current_price*np.sqrt(years_to_maturity))
 
             option_price = float(dat['Value'][1:])
             pricelist.append(option_price)
