@@ -47,6 +47,7 @@ filterpy==1.4.5
 flake8==3.7.9
 Flask==1.1.2
 Flask-Compress==1.5.0
+fpzip==1.1.4
 future==0.18.2
 gast==0.2.2
 geojson==2.5.0
