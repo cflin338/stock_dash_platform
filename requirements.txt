@@ -86,7 +86,7 @@ mibian==0.1.3
 mistune
 mkl-fft
 mkl-random
-mkl-servic
+mkl-service
 murmurhash
 nbconvert
 nbformat
