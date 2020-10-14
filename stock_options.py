@@ -33,6 +33,7 @@ from scipy.stats import norm
 import numpy as np
 import datetime as dt
 from yahoo_fin import options
+from pytrends.request import TrendReq
 
 def years_to_maturity_calc(date):
     month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
@@ -213,8 +214,8 @@ def optimal_options_combination(ticker, date, price_today,risk_free_rate):
             
             total_option_cost = call_option_price + put_option_price
             
-            c_xval = [0, call_strike_price, call_strike_price + call_option_price, call_strike_price * 1.5]
-            p_xval = [0, max(0, put_strike_price - put_option_price), put_strike_price, put_strike_price*1.5]
+#            c_xval = [0, call_strike_price, call_strike_price + call_option_price, call_strike_price * 1.5]
+#            p_xval = [0, max(0, put_strike_price - put_option_price), put_strike_price, put_strike_price*1.5]
             
             combined_xval = np.sort(np.unique([0, call_strike_price, call_strike_price+call_option_price, max(call_strike_price *1.5, (call_strike_price+call_option_price)*1.2),
                                      max(0,put_strike_price-put_option_price), put_strike_price, put_strike_price*1.5]))
@@ -238,11 +239,82 @@ def optimal_options_combination(ticker, date, price_today,risk_free_rate):
             if np.min(overall_profit)>1:
                 good_combinations.append({'profit': [combined_xval, overall_profit], 'call': c, 'put': p})
     return good_combinations
+ 
+           
+def daily_historical_trends(ticker):
+    #returns total daily searches for last 10 years for the ticker name, ticker name + "news", ticker name + "stocks"
+    pytrends = TrendReq(hl = 'en-US', tz = 360) 
+    #time zone = 360 = us central, hl = host language (always use end-US)
+    kw = [ticker, ticker + ' news', ticker + ' stock']
+    pytrends.build_payload(kw, cat=0,)
+    dat = pytrends.interest_over_time()
+    return dat
+    """
+    today = datetime.datetime.today()
+    date_list = []
+    trends_data1 = pytrends.get_historical_interest(kw, year_start = today.year-4, month_start = today.month, day_start = today.day,
+                                     year_end = today.year-3, month_end = today.month, day_end = today.day, geo = 'us')
+    prev_hour = -1
+    total_views = np.array([0,0,0])
+    date = datetime.date(year = trends_data1.index[0].year, 
+                                  month = trends_data1.index[0].month,
+                                  day = trends_data1.index[0].day)
+    total_views_overall = []
+    for i in range(len(trends_data1)):
+        if trends_data1.index[i].hour>=prev_hour:
+            prev_hour = trends_data1.index[i]
+            total_views+=trends_data1.to_numpy()[i,0:3]
+        else:
+            date_list.append(date)
+            date = datetime.date(year = trends_data1.index[i].year,
+                                          month = trends_data1.index[i].month,
+                                          day = trends_data1.index[i].day)
+            total_views_overall.append(total_views)
+            total_views = trends_data1.to_numpy()[i,0:3]
             
+    trends_data2 = pytrends.get_historical_interest(kw, year_start = today.year-3, month_start = today.month, day_start = today.day,
+                                     year_end = today.year-2, month_end = today.month, day_end = today.day, geo = 'us')
+    for i in range(len(trends_data2)):
+        if trends_data2.index[i].hour>=prev_hour:
+            prev_hour = trends_data2.index[i]
+            total_views+=trends_data2.to_numpy()[i,0:3]
+        else:
+            date_list.append(date)
+            date = datetime.date(year = trends_data2.index[i].year,
+                                          month = trends_data2.index[i].month,
+                                          day = trends_data2.index[i].day)
+            total_views_overall.append(total_views)
+            total_views = trends_data2.to_numpy()[i,0:3]
             
-#from yahoo_fin import stock_info as si
-#res = optimal_options_combination('aapl', 'November 20, 2020', si.get_live_price('aapl'), .0069)
-
+    trends_data3 = pytrends.get_historical_interest(kw, year_start = today.year-2, month_start = today.month, day_start = today.day,
+                                     year_end = today.year-1, month_end = today.month, day_end = today.day, geo = 'us')
+    for i in range(len(trends_data3)):
+        if trends_data3.index[i].hour>=prev_hour:
+            prev_hour = trends_data3.index[i]
+            total_views+=trends_data3.to_numpy()[i,0:3]
+        else:
+            date_list.append(date)
+            date = datetime.date(year = trends_data3.index[i].year,
+                                          month = trends_data3.index[i].month,
+                                          day = trends_data3.index[i].day)
+            total_views_overall.append(total_views)
+            total_views = trends_data3.to_numpy()[i,0:3]
+            
+    trends_data4 = pytrends.get_historical_interest(kw, year_start = today.year-1, month_start = today.month, day_start = today.day,
+                                     year_end = today.year, month_end = today.month, day_end = today.day, geo = 'us')
+    for i in range(len(trends_data4)):
+        if trends_data4.index[i].hour>=prev_hour:
+            prev_hour = trends_data4.index[i]
+            total_views+=trends_data4.to_numpy()[i,0:3]
+        else:
+            date_list.append(date)
+            date = datetime.date(year = trends_data4.index[i].year,
+                                          month = trends_data4.index[i].month,
+                                          day = trends_data4.index[i].day)
+            total_views_overall.append(total_views)
+            total_views = trends_data4.to_numpy()[i,0:3]
+    return trends_data1
+    """
 
     
 """

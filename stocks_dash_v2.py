@@ -11,8 +11,8 @@ import dash_table
 import plotly.graph_objs as go
 import scipy.stats as stats
 from dash.dependencies import Input, Output, State
-
 import datetime
+from plotly.graph_objs.scatter.marker import Line
 
 import json
 from yahoo_fin import options
@@ -107,6 +107,8 @@ class stock_custom():
             opt.update(grks)
             self.observed_options[contract_name] = opt
         return self.observed_options
+    
+
         
     """
     ###
@@ -140,7 +142,7 @@ bulk_calc(all_dates,all_strikes, current_price, rate, IV_list)
 intrinsic value: max(0, (current_price - strike_price)*(-1)**(option_type == 'put'))
 time value: option_price - intrinsic value
 """
-     
+    
 examined_stock = stock_custom()
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -329,6 +331,30 @@ app.layout = html.Div(children = [
 
 
 ])
+#implement movinga average lines
+#implement trends overlay with candlestick
+
+"""
+from pytrends.request import TrendReq
+
+pytrends = TrendReq(hl = 'end-US', tz = 360) #time zone = 360 = us central, hl = host language (always use end-US)
+kw_list = ['tsla', 'TSLA']
+pytrends.build_payload(kw_list, cat=0, timeframe='today 3-m', geo='', gprop='')
+trend_it = pytrends.interest_over_time()
+trend_hi = pytrends.get_historical_interest(kw_list, year_start=2018, month_start=1, 
+                                            day_start=1, hour_start=0, year_end=2018, 
+                                            month_end=2, day_end=1, hour_end=0, 
+                                            cat=0, geo='', gprop='', sleep=0) 
+
+cat: 
+    Financial Markets: 1163
+    Finance: 7
+    Public Finance (law/gvt): 1161
+    Business Finance: 1138
+geo = 'US'; maybe dont want to focus on US?
+
+    
+"""
 
 
 #
@@ -438,15 +464,15 @@ def display_options_profitabilities_plot(clicks, values):
         
 #        norm_distr_x = np.linspace(0, maxX, 100)
         norm_distr_x = xvals_for_profits
-        norm_distr_y = stats.norm.pdf(norm_distr_x,mu,sigma)
+        norm_distr_y = stats.norm.cdf(norm_distr_x,mu,sigma)
         fig.add_scatter(x = norm_distr_x, y = norm_distr_y, mode = 'lines', marker = dict(color = 'Grey'),
                         row = 1, col = 2, showlegend = True, secondary_y = True, name = 'Normal Distr')
           
         #how should standard deviation of multiple options be calculated? 
         #what makes the most sense?
         #for now, will simply use average of the contracts
-        
-        estimated_profit = np.sum([i*j for i,j in zip(norm_distr_y, profits)])
+        norm_distr_pdf_y = stats.norm.pdf(norm_distr_x,mu,sigma)
+        estimated_profit = np.sum([i*j for i,j in zip(norm_distr_pdf_y, profits)])
         
         return fig, 'Estimated Profit/Loss: ${}'.format(np.round(estimated_profit,2))
     
@@ -468,11 +494,7 @@ def display_options_profitabilities_plot(clicks, values):
      State(component_id = 'analysis1-contract-date-selection', component_property = 'value')])
 
 def display_option_greeks_table(clicks, strike,  option_type,date):
-    orig_date = date
-    try:
-        date_len = len(date)
-    except TypeError:
-        date_len = 0
+
     if date is None:
         return [{'label': '', 'value': ''}],[{'Contract Name': '','Expir Date': '','Strike Price': '','Value': '',
                  'Type': '', 'Implied Vol': '','delta':'','gamma': '', 'theta':'',
@@ -564,34 +586,64 @@ def update_candlestick(click, date):
     yrsbefore = datetime.datetime.today() - datetime.timedelta(days = 365*10)
     
     if len(np.shape(df))>0:
-        dates = [i for i in df.to_dict()['open']]
+        fig = make_subplots(specs=[[{"secondary_y": True}]], subplot_titles = ['Trends'], x_title = 'Date')
+
+        dates = df.index.to_list()#df[i for i in df.to_dict()['open']]
         earliest = dates[0].to_pydatetime()
         latest = max(yrsbefore, earliest)
+        google_interest = stock_options.daily_historical_trends(examined_stock.ticker)
+        trends_trace1 = go.Scatter(x = google_interest.index,y = google_interest[examined_stock.ticker].to_numpy(), 
+                                  mode = 'lines', showlegend = True, name = 'Searches for {}'.format(examined_stock.ticker),
+                                  marker = dict(color = 'Teal'))
+        trends_trace2 = go.Scatter(x = google_interest.index,y = google_interest[examined_stock.ticker + ' news'].to_numpy(), 
+                                  mode = 'lines', showlegend = True, name = 'Searches for {} news'.format(examined_stock.ticker),
+                                  marker = dict(color = 'Teal'))
+        trends_trace3 = go.Scatter(x = google_interest.index,y = google_interest[examined_stock.ticker + ' stock'].to_numpy(), 
+                                  mode = 'lines', showlegend = True, name = 'Searches for {} stock'.format(examined_stock.ticker),
+                                  marker = dict(color = 'Teal'))
+        trends_trace_total = go.Scatter(x = google_interest.index,y = google_interest[examined_stock.ticker].to_numpy() + google_interest[examined_stock.ticker + ' news'].to_numpy() + google_interest[examined_stock.ticker + ' stock'].to_numpy(), 
+                                  mode = 'lines', showlegend = True, name = 'Total searches for {}/news/stock'.format(examined_stock.ticker),
+                                  marker = dict(color = 'Teal'))
         if latest ==earliest:
-            fig = go.Figure(data=[go.Candlestick(x= dates, 
-                                                 open = df['open'],
-                                                 high = df['high'],
-                                                 low = df['low'],
-                                                 close = df['close'])], 
-                            layout= {'title': 'Historical Candlestick'})
+            trace1 = go.Candlestick(x= dates, 
+                                    open = df['open'],
+                                    high = df['high'],
+                                    low = df['low'],
+                                    close = df['close'],
+                                    name = 'Historical Candlestick')
+#            fig = go.Figure([trace1, ], #legend = ['Price'],
+#                            layout= {'title': 'Historical Candlestick'},)
+            fig.add_trace(trace1, secondary_y = False)
         else:
             latest = datetime.datetime(year = latest.year, month = latest.month, day = latest.day)
             while latest not in dates:
                 latest = latest + datetime.timedelta(days = 1)
             ind = dates.index(latest)
-            fig = go.Figure(data=[go.Candlestick(x= dates[ind:], 
-                                             open = df['open'][ind:],
-                                             high = df['high'][ind:],
-                                             low = df['low'][ind:],
-                                             close = df['close'][ind:])], 
-                        layout= {'title': 'Historical Candlestick'})
+            trace1 = go.Candlestick(x= dates[ind:], 
+                                    open = df['open'][ind:],
+                                    high = df['high'][ind:],
+                                    low = df['low'][ind:],
+                                    close = df['close'][ind:],
+                                    name = 'Historical Candlestick')
+#            fig = go.Figure([trace1, ], #legend = ['Price'],
+#                        layout= {'title': 'Historical Candlestick'},)
+            fig.add_trace(trace1,secondary_y=False,)
+        
+        fig.add_trace(trends_trace1,secondary_y = True)
+        fig.add_trace(trends_trace2,secondary_y = True)
+        fig.add_trace(trends_trace3,secondary_y = True)
+        fig.add_trace(trends_trace_total, secondary_y = True)
+        
+        fig.update_yaxes(title_text="$", secondary_y=False)
+        fig.update_yaxes(title_text="Searches", secondary_y=True)
     else:
         fig = go.Figure(data=[go.Candlestick(x= [0], 
                                              open =[0],
                                              high = [0],
                                              low = [0],
                                              close = [0])], 
-                        layout= {'title': 'Input ticker then click update'})
+                        layout= {'title': 'Input ticker then click update'},)
+        
     return fig
 
 #-----------------------------------------------------------------------------------
