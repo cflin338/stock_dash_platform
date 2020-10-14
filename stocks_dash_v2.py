@@ -332,29 +332,6 @@ app.layout = html.Div(children = [
 
 ])
 #implement movinga average lines
-#implement trends overlay with candlestick
-
-"""
-from pytrends.request import TrendReq
-
-pytrends = TrendReq(hl = 'end-US', tz = 360) #time zone = 360 = us central, hl = host language (always use end-US)
-kw_list = ['tsla', 'TSLA']
-pytrends.build_payload(kw_list, cat=0, timeframe='today 3-m', geo='', gprop='')
-trend_it = pytrends.interest_over_time()
-trend_hi = pytrends.get_historical_interest(kw_list, year_start=2018, month_start=1, 
-                                            day_start=1, hour_start=0, year_end=2018, 
-                                            month_end=2, day_end=1, hour_end=0, 
-                                            cat=0, geo='', gprop='', sleep=0) 
-
-cat: 
-    Financial Markets: 1163
-    Finance: 7
-    Public Finance (law/gvt): 1161
-    Business Finance: 1138
-geo = 'US'; maybe dont want to focus on US?
-
-    
-"""
 
 
 #
@@ -419,6 +396,7 @@ def display_options_profitabilities_plot(clicks, values):
             xlist.append(option_strike_price+option_price)
             xlist.append(option_strike_price*1.5)
             xlist.append((option_strike_price+option_price)*1.1)
+            xlist.append(examined_stock.current_price+2*float(dat['Implied Vol'][0:-1])/100*examined_stock.current_price*np.sqrt(years_to_maturity))
         
 #        minX = np.min(np.array(xlist).flatten())
         minX = np.min(np.array(xlist))
@@ -465,13 +443,18 @@ def display_options_profitabilities_plot(clicks, values):
 #        norm_distr_x = np.linspace(0, maxX, 100)
         norm_distr_x = xvals_for_profits
         norm_distr_y = stats.norm.cdf(norm_distr_x,mu,sigma)
+        
         fig.add_scatter(x = norm_distr_x, y = norm_distr_y, mode = 'lines', marker = dict(color = 'Grey'),
-                        row = 1, col = 2, showlegend = True, secondary_y = True, name = 'Normal Distr')
+                        row = 1, col = 2, showlegend = True, secondary_y = True, name = 'Cumulative Normal Distr')
           
         #how should standard deviation of multiple options be calculated? 
         #what makes the most sense?
         #for now, will simply use average of the contracts
         norm_distr_pdf_y = stats.norm.pdf(norm_distr_x,mu,sigma)
+        
+        fig.add_scatter(x = norm_distr_x, y = norm_distr_pdf_y, mode = 'lines', marker = dict(color = 'Grey'),
+                        row = 1, col = 2, showlegend = True, secondary_y = True, name = 'Normal Distr')
+        
         estimated_profit = np.sum([i*j for i,j in zip(norm_distr_pdf_y, profits)])
         
         return fig, 'Estimated Profit/Loss: ${}'.format(np.round(estimated_profit,2))
