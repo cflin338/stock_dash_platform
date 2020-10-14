@@ -1,8 +1,8 @@
 # Stock Dash Platform
 
 ## Usage
-Input single ticker
-Change risk-free interest rate if necessary (input as %)
+- Input single ticker
+- Change risk-free interest rate if necessary (input as %)
 
 ## Functions
 - Tracks live price
