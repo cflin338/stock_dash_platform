@@ -17,6 +17,7 @@
 - Calculates/ Plots PDF and CDF onto profits plot
 
 ## To-dos:
+- FIX HEROKU DEPLOYMEN; currently has issue with importing numpy, fixing requirements has not helped
 - Incorparate mentions into analysis
 - Include individual contract analysis; detailing potential price changes with utilizing slide bars for (stock price, IV, days till expir)
 - Incorporate predictive analysis on daily/ live price plot using kalman filtering (just idea), predicting using (splines or other functions)
