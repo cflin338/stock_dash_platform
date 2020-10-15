@@ -21,3 +21,4 @@
 - Include individual contract analysis; detailing potential price changes with utilizing slide bars for (stock price, IV, days till expir)
 - Incorporate predictive analysis on daily/ live price plot using kalman filtering (just idea), predicting using (splines or other functions)
 - Utilize different contracts with same strike price but different dates to anticipate price changes, calculating % chance a the option price will be a specific value on a certain date
+- Adjust plotting of options profitability feature so you select if you're buying or selling the contract; entails reflecting options plot over x-axis; need to include dropdown or a 2-selection bullet point that for picking "buy" or "sell"
