@@ -13,7 +13,11 @@
 - Plots specified options and possible profit outcomes along with normal distribution
 - Profit assumption is that option will be exercised (or left alone) at/until expiration date and no earlier
 - Displays expected profit margin utilizing normal distribution
+- Pulls historical/daily mentions via google, overlaid onto candle-stock plot
+- Calculates/ Plots PDF and CDF onto profits plot
 
 ## To-dos:
-- Pull historical/ daily mentions via google
 - Incorparate mentions into analysis
+- Include individual contract analysis; detailing potential price changes with utilizing slide bars for (stock price, IV, days till expir)
+- Incorporate predictive analysis on daily/ live price plot using kalman filtering (just idea), predicting using (splines or other functions)
+- Utilize different contracts with same strike price but different dates to anticipate price changes, calculating % chance a the option price will be a specific value on a certain date
