@@ -17,121 +17,11 @@ from plotly.graph_objs.scatter.marker import Line
 import json
 from yahoo_fin import options
 
+from stock_options import stock_custom
+
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-class stock_custom():
-    def __init__(self):
-        self.ticker = ''
-        self.current_price = 0
-        self.stats = [{'Attribute':'', 'Value':0}]
-        self.historical =0
-        self.risk_free_rate = 0
-        self.prices_today = []
-        self.todays_times = []
-        self.option_dates = []
-        self.observed_options = {}
-        
-    def update(self,new_ticker, rate):
-        old_ticker = self.ticker
-        self.risk_free_rate = rate/100
-        self.ticker = new_ticker.upper()
-        if (self.ticker!='') & (new_ticker!=old_ticker):
-            self.current_price = si.get_live_price(self.ticker)
-            self.todays_times = [datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")[11:]]
-            self.prices_today = [si.get_live_price(self.ticker)]
-            self.historical = si.get_data(self.ticker)
-            self.option_dates = options.get_expiration_dates(new_ticker)
-            self.observed_options = {}
-            try:
-                self.stats = si.get_stats(self.ticker).to_dict('records')
-            except ValueError:
-                self.stats = [{'Attribute':'none available', 'Value':'none available'}]
-            
-    def update_price(self):
-        if self.ticker!='':
-            self.todays_times.append(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")[11:])
-            self.prices_today.append(si.get_live_price(self.ticker))
-            self.current_price = self.prices_today[-1]
-    
-    def update_options_list(self, option_type, strike, date):
-        empty = {'Last Trade Date': '', 
-                 'Strike':'',
-                 'Last Price': '',
-                 'Bid': '',
-                 'Ask':'',
-                 'Change':'',
-                 '% Change':'',
-                 'Volume':'',
-                 'Open Interest':'',
-                 'Implied Volatility': ''}  
-        contract_name = stock_options.option_naming(self.ticker, strike, date, option_type)
-        orig_date = date
-        if contract_name not in self.observed_options:
-            #breakdown date string    
-            """
-            month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
-            month_today = month_int.index(date[0:date.index(' ')])+1
-            date = date[date.index(' ')+1:]
-            day_today = int(date[0:date.index(',')])
-            year_today = int(date[-4:])
-            strike_date_datetime = datetime.date(year_today, month_today, day_today)
-            tod = datetime.date(year = datetime.datetime.today().year, month = datetime.datetime.today().month, day = datetime.datetime.today().day)
-            years_to_maturity = (strike_date_datetime-tod).days/365
-            """
-            years_to_maturity = stock_options.years_to_maturity_calc(date)
-            #get implied volatility
-            if option_type.lower()=='call':
-                df = options.get_calls(self.ticker, orig_date)
-            else:
-                df = options.get_puts(self.ticker, orig_date)
-            iv = float(df.loc[df['Strike']==strike]['Implied Volatility'].to_list()[0][0:-1].replace(',',''))/100
-    
-            #calculate greeks        
-            grks = stock_options.option_greeks(self.prices_today[-1], 
-                                              strike, years_to_maturity, 
-                                              iv,
-                                              self.risk_free_rate)[option_type.lower()]
-            
-            #calculate prices
-            price = round(stock_options.option_price(self.prices_today[-1], 
-                                              strike, years_to_maturity, 
-                                              iv,
-                                              self.risk_free_rate)[option_type.lower()],2)
-            
-            opt = {'Expir Date': orig_date,
-                   'Strike Price': '${}'.format(strike)}
-            
-            opt['Value'] = '${}'.format(price)
-            opt['Type'] = option_type
-            opt['Implied Vol'] = '{}%'.format(np.round(iv*100,4))
-            opt.update(grks)
-            self.observed_options[contract_name] = opt
-        return self.observed_options
-    
-
-        
-    """
-    ###
-    #currently unused
-    ###
-    def add_observed_option(self, option_type, strike, date, greeks):
-        new_opt = {'type': option_type,
-                    'strike':strike,
-                    'date': date, 
-                    'greeks': greeks}
-        if new_opt not in self.observed_options:
-            self.observed_options.append(new_opt)
-            
-    def remove_observed_option(self, option_type, strike, date, greeks):
-        new_opt = {'type': option_type,
-                    'strike':strike,
-                    'date': date, 
-                    'greeks': greeks}
-        if new_opt in self.observed_options:
-            self.observed_options.remove(new_opt)
-    """
-    
-    
+   
 """
 option_price(stock_price, strike_price, years_to_maturity,  IV, rate)
 option_breakdown(string)
@@ -278,6 +168,8 @@ app.layout = html.Div(children = [
                      className = 'two columns'),
             html.Div(children = [dcc.Dropdown(id = 'analysis1-contract-strike-selection', style = {'width': 250}, options = [{'label':'','value':''}], placeholder = 'Select Strike Price', ),],
                      className = 'two columns'),
+#            html.Div(children = [dcc.Dropdown(id = 'buy-sell-options-dropdown', style = {'width': 250}, options = [{'label':'Buy','value':'Buy'}, {'label':'Sell',:'value':'Sell'}], placeholder = 'Buy/Sell', ),],
+#                     className = 'two columns'),
             html.Div(children = [html.Button(id = 'analysis1-display-options-greeks-button', n_clicks = 0, children = 'Calc Options Info')], 
                      className = 'two columns'),
             ],className = 'row', ),
@@ -331,7 +223,7 @@ app.layout = html.Div(children = [
 
 
 ])
-#implement movinga average lines
+#implement moving average lines
 
 
 #
@@ -467,7 +359,7 @@ def display_options_profitabilities_plot(clicks, values):
 #initiation: press 'show options greeks' button AFTER price and option type selected
 #
 #-----------------------------------------------------------------------------------
-
+#currently only buying options; implement selling options as well; simply involves flip over x-axis
 @app.callback(
     [Output(component_id = 'options-to-display-dropdown', component_property = 'options'),
     Output(component_id = 'options-greeks-table', component_property = 'data')],
@@ -644,6 +536,7 @@ def update_candlestick(click, date):
 def update_live_price(interval):
     #updated every 1 second;
     #do we only want to look at previous... 60*10= 600 seconds?
+    #implement kalman filter projection of live price
     examined_stock.update_price()
     p = examined_stock.prices_today
     t = examined_stock.todays_times
