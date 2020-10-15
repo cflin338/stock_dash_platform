@@ -218,13 +218,31 @@ app.layout = html.Div(children = [
         className = 'row'),
     html.Div(children = [
         html.Div(children = [
-            html.Button(id = 'search-contract-combinations',children = 'Check possible C/P combinations for Profit'),
+            html.Button(id = 'search-contract-combinations',children = 'Check possible C/P combinations for Profit', n_clicks = 0),
+            html.Div(id = 'optimal-search-results',)
             ])])
 
 
 ])
 #implement moving average lines
 
+@app.callback(Output(component_id = 'optimal-search-results', component_property = 'children'),
+              Input(component_id = 'search-contract-combinations', component_property = 'n_clicks'))
+def eval_all_combinations_for_profits(clicks):
+    if clicks>0:
+        #loop through dates
+        good_combinations = 0
+        combination_list = {}
+        print('checking for possible profitable combinations...')
+        print(len(examined_stock.option_dates))
+        for d in examined_stock.option_dates:
+            opt = stock_options.optimal_options_combination(examined_stock.ticker, d,examined_stock.current_price, examined_stock.risk_free_rate)
+            if len(opt)>0:
+                good_combination+=len(opt)
+                combination_list[d] = opt
+        return 'number of good combinations: {} over {} dates'.format(good_combinations, len(examined_stock.option_dates))
+    else:
+        return 'n/a'
 
 #
 #-----------------------------------------------------------------------------------
