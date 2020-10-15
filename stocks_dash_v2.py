@@ -212,19 +212,43 @@ app.layout = html.Div(children = [
         html.Div(children = [dcc.Dropdown(id = 'options-to-display-dropdown',placeholder = 'Select Options To Plot', 
                      multi = True, clearable = True)], className = 'three columns'),
         html.Button(id = 'plot-options-possibilities-button', n_clicks = 0, children = 'Plot Projections'),
-        html.Div(id = 'projected-pl-display'),
-        dcc.Graph(id = 'options-plot-overlay' )
         ],
         className = 'row'),
+    html.Div(id = 'possible-radio-items-listing', #children = ['Buy/Sell Selection Displayed Here After Options Selected'
+#        dcc.RadioItems(options = [{'label': 'Buy', 'value': 'Buy'},{'label':'Sell', 'value': 'Sell'}], labelStyle = {'display': 'inline-block'}),
+#       will fill childrens list with radio items das more options selected to be plotted
+        #],
+        className = 'row'),
+    html.Div(children = [
+        html.Div(id = 'projected-pl-display'),
+        html.Div(children = [dcc.Graph(id = 'options-plot-overlay' )], 
+                 className = 'row'),],
+        className = 'row'
+        ),
     html.Div(children = [
         html.Div(children = [
             html.Button(id = 'search-contract-combinations',children = 'Check possible C/P combinations for Profit', n_clicks = 0),
             html.Div(id = 'optimal-search-results',)
-            ])])
+            ])],
+        className = 'row'),
 
 
 ])
 #implement moving average lines
+
+@app.callback(Output(component_id = 'possible-radio-items-listing', component_property = 'children'),
+              Input(component_id = 'options-to-display-dropdown', component_property = 'value'))
+def show_options_radioitems_buy_call(dropdown_items):
+    if dropdown_items is None:
+        return ['Buy/Sell Selection Displayed Here After Options Selected']
+#    print(len(dropdown_items))
+    if len(dropdown_items)==0:
+        return ['no options selected']
+    radio_list = []
+    for i in dropdown_items:
+        radio_list.append(dcc.RadioItems(options = [{'label': 'Buy '+i, 'value': 'Buy '+i}, {'label': 'Sell '+i, 'value': 'Sell '+i}], 
+                           labelStyle = {'display': 'inline-block'}))
+    return radio_list
 
 @app.callback(Output(component_id = 'optimal-search-results', component_property = 'children'),
               Input(component_id = 'search-contract-combinations', component_property = 'n_clicks'))
@@ -255,9 +279,16 @@ def eval_all_combinations_for_profits(clicks):
 @app.callback([Output(component_id = 'options-plot-overlay', component_property = 'figure'),
                Output(component_id = 'projected-pl-display', component_property = 'children')],
               Input(component_id = 'plot-options-possibilities-button', component_property = 'n_clicks'),
-              State(component_id = 'options-to-display-dropdown', component_property = 'value'))
+              [State(component_id = 'options-to-display-dropdown', component_property = 'value'),
+               State(component_id = 'possible-radio-items-listing', component_property = 'children')])
 
-def display_options_profitabilities_plot(clicks, values):
+def display_options_profitabilities_plot(clicks, values, buy_sell):
+    selections = {}
+    if buy_sell is not None:
+        for i in buy_sell:
+            temp_str = i['props']['value']
+            selections[temp_str[temp_str.index(' ')+1:]] = temp_str[0:temp_str.index(' ')]
+            
     fig = make_subplots(rows=1, cols=2, x_title = 'Stock Price($)',y_title = 'Profit($)',
                     subplot_titles = ['Contract(s) Profit/Loss($)', 'Overall Profit/Loss($)'],
                     specs = [[{"secondary_y": True}, {"secondary_y": True}],])
@@ -299,32 +330,25 @@ def display_options_profitabilities_plot(clicks, values):
             option_strike_price = float(dat['Strike Price'][1:])
             strikepricelist.append(option_strike_price)
             
-            #this is unnecessary
-#            xval = [0, max(0,option_strike_price - option_price), option_strike_price, 
-#                    option_strike_price + option_price, option_strike_price * 1.5]
-#            xlist.append(xval)
+            
             xlist.append(option_strike_price+option_price)
             xlist.append(option_strike_price*1.5)
             xlist.append((option_strike_price+option_price)*1.1)
             xlist.append(examined_stock.current_price+2*float(dat['Implied Vol'][0:-1])/100*examined_stock.current_price*np.sqrt(years_to_maturity))
         
-#        minX = np.min(np.array(xlist).flatten())
         minX = np.min(np.array(xlist))
-#        maxX = np.max(np.array(xlist).flatten())
         maxX = np.max(np.array(xlist))
         
-#        xvals_for_profits = np.sort(np.unique(np.array(xlist).flatten()))
         xvals_for_profits = np.linspace(minX,maxX, 200)
-        for p,s,t in zip(pricelist, strikepricelist,typelist):
+        for p,s,t,v in zip(pricelist, strikepricelist,typelist,values):
             if t.lower()=='call':
-                ylist.append([max(-p, x - s - p) for x in xvals_for_profits])
+                ylist.append([(-1)**(selections[v]=='Sell') * max(-p, x - s - p) for x in xvals_for_profits])
             else:
-                ylist.append([max(-p, s - x - p) for x in xvals_for_profits])
+                ylist.append([(-1)**(selections[v]=='Sell') * max(-p, s - x - p) for x in xvals_for_profits])
                 
         for ind in range(len(values)):
             fig.add_scatter(x =xvals_for_profits ,y=ylist[ind], mode="lines",
                             marker=dict(size=5, color="LightSeaGreen"),name = values[ind],row=1, col=1)
-            
 
         #calculate profits
         profits = sum([np.array(i) for i in ylist])
