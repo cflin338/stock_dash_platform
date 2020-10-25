@@ -259,6 +259,43 @@ def daily_historical_trends(ticker):
     dat = pytrends.interest_over_time()
     return dat
 
+def moving_average(series, avg_type, length):
+    tmp_vals = series[0:length]
+    averages = []
+    if avg_type == 'standard':
+        averages.append(np.mean(tmp_vals))
+        for k in range(length,len(series)):
+            tmp_vals.pop(0)
+            tmp_vals.append(series[k])
+            averages.append(np.mean(tmp_vals))
+            
+    elif avg_type ==  'exponential':
+        alpha= .95
+        
+        alpha_list = [alpha**i for i in range(length)]
+        alpha_sum = np.sum(alpha_list)
+        tmp_vals.reverse()
+        averages.append(np.mean([i*j for (i,j) in zip(tmp_vals,alpha_list)])/(1-alpha))
+        tmp_vals.reverse()
+        for k in range(length, len(series)):
+            tmp_vals.pop(0)
+            tmp_vals.append(series[k])
+            tmp_vals.reverse()
+            averages.append(np.mean([i*j for (i,j) in zip(tmp_vals, alpha_list)])/(1-alpha))
+            tmp_vals.reverse()
+            
+    elif avg_type == 'weighted':
+        alpha_list = list(range(1,length+1))
+        wma_sum = sum(alpha_list)
+        averages.append(sum([i*j for (i,j) in zip(alpha_list, tmp_vals)])/wma_sum)
+        for k in range(length, len(series)):
+            tmp_list.pop(0)
+            tmp_list.append(series[k])
+            averages.append(sum([i*j for (i,j) in zip(alpha_list, tmp_vals)])/wma_sum)
+        
+        
+    return averages
+        
 
 
 
