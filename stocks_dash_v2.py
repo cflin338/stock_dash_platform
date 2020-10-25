@@ -44,7 +44,7 @@ app.layout = html.Div(children = [
     
     html.Div(children = [
         dcc.Input(id = 'ticker-input', value = '', type = 'text'),
-        dcc.Input(id = 'rate-input', value = .69, type = 'number'),
+        dcc.Input(id = 'rate-input', value = stock_options.get_current_risk_free_interest_rate(), type = 'number'),
         html.Button(id = 'update-ticker-info', n_clicks = 0, children = 'Start Tracking Live Price'),
         html.Button(id = 'fill-ticker-table-info', n_clicks = 0, children = 'Fill Table'),
         ],

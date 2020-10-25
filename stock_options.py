@@ -35,11 +35,23 @@ import datetime as dt
 from yahoo_fin import options
 from pytrends.request import TrendReq
 from yahoo_fin import stock_info as si
-
+import requests
+from bs4 import BeautifulSoup
+import re #for regex
 
     
 
-
+def get_current_risk_free_interest_rate():
+    url= 'https://ycharts.com/indicators/10_year_treasury_rate'
+    resp = requests.get(url)
+    if resp.status_code==200:
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        txt = soup.findAll('div', {'class': 'key-stat-title'})[0].get_text('self')
+        val = re.search('\d.*%', txt).__getitem__(0)
+        rate = float(val[:-1])
+        return rate
+    else:
+        return 0.7
 
 def years_to_maturity_calc(date):
     month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
