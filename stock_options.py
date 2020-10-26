@@ -293,8 +293,8 @@ def moving_average(series, avg_type, length):
         wma_sum = sum(alpha_list)
         averages.append(sum([i*j for (i,j) in zip(alpha_list, tmp_vals)])/wma_sum)
         for k in range(length, len(series)):
-            tmp_list.pop(0)
-            tmp_list.append(series[k])
+            tmp_vals.pop(0)
+            tmp_vals.append(series[k])
             averages.append(sum([i*j for (i,j) in zip(alpha_list, tmp_vals)])/wma_sum)
         
     return averages
