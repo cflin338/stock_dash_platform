@@ -1,4 +1,3 @@
-
 import numpy as np
 from yahoo_fin import stock_info as si
 from plotly.subplots import make_subplots
@@ -20,7 +19,6 @@ from yahoo_fin import options
 from stock_options import stock_custom
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
    
 """
 option_price(stock_price, strike_price, years_to_maturity,  IV, rate)
@@ -82,8 +80,10 @@ app.layout = html.Div(children = [
     html.Br(),
     
     html.Div(children = [
-        dcc.Graph(id = 'historical-candlestick-graph')],className = 'row' 
-        ),
+        dcc.Graph(id = 'historical-candlestick-graph')],className = 'row' ),
+    
+    html.Div(children = [
+        dcc.Graph(id = 'macd-overlay-graph')], className = 'row'),
     
     html.H4('Options Details'),
     
@@ -494,17 +494,21 @@ def display_calls_table(clicks, date):
 #-----------------------------------------------------------------------------------
 
 @app.callback(
-    Output(component_id = 'historical-candlestick-graph', component_property = 'figure'),
+    [Output(component_id = 'historical-candlestick-graph', component_property = 'figure'),
+     Output(component_id = 'macd-overlay-graph', component_property = 'figure')],
     [Input(component_id = 'display-candle', component_property = 'n_clicks')],
     [State(component_id = 'prev-date-select', component_property = 'value')])
 
 def update_candlestick(click, date):
+    #add moving average plots, length 12 and 26 as traces to historical candlestick graph
+    #add macd (12 - 26) and exp mov avg of macd (9) to macd overlay graph, will have 2 lines + 1 bar graph
+    #for moving averages, use closing price
     df = examined_stock.historical
     yrsbefore = datetime.datetime.today() - datetime.timedelta(days = 365*10)
     
     if len(np.shape(df))>0:
         fig = make_subplots(specs=[[{"secondary_y": True}]], subplot_titles = ['Trends'], x_title = 'Date')
-
+        macd_fig = make_subplots(specs=[[{"secondary_y": True}]], subplot_titles = ['MACD'], x_title = 'Date')
         dates = df.index.to_list()#df[i for i in df.to_dict()['open']]
         earliest = dates[0].to_pydatetime()
         latest = max(yrsbefore, earliest)
@@ -521,6 +525,7 @@ def update_candlestick(click, date):
         trends_trace_total = go.Scatter(x = google_interest.index,y = google_interest[examined_stock.ticker].to_numpy() + google_interest[examined_stock.ticker + ' news'].to_numpy() + google_interest[examined_stock.ticker + ' stock'].to_numpy(), 
                                   mode = 'lines', showlegend = True, name = 'Total searches for {}/news/stock'.format(examined_stock.ticker),
                                   marker = dict(color = 'Teal'))
+
         if latest ==earliest:
             trace1 = go.Candlestick(x= dates, 
                                     open = df['open'],
@@ -528,9 +533,9 @@ def update_candlestick(click, date):
                                     low = df['low'],
                                     close = df['close'],
                                     name = 'Historical Candlestick')
-#            fig = go.Figure([trace1, ], #legend = ['Price'],
-#                            layout= {'title': 'Historical Candlestick'},)
-            fig.add_trace(trace1, secondary_y = False)
+            seq = df['close'][ind:]
+            seq_x = dates
+#            fig.add_trace(trace1, secondary_y = False)
         else:
             latest = datetime.datetime(year = latest.year, month = latest.month, day = latest.day)
             while latest not in dates:
@@ -542,10 +547,30 @@ def update_candlestick(click, date):
                                     low = df['low'][ind:],
                                     close = df['close'][ind:],
                                     name = 'Historical Candlestick')
-#            fig = go.Figure([trace1, ], #legend = ['Price'],
-#                        layout= {'title': 'Historical Candlestick'},)
-            fig.add_trace(trace1,secondary_y=False,)
+            seq = df['close'][ind:]
+            seq_x = dates[ind:]
+#            fig.add_trace(trace1,secondary_y=False,)
         
+        m1 = stock_options.moving_average(list(seq), 'exponential',12)
+        trace_12 = go.Scatter(x = seq_x[12:], y = m1, mode = 'lines', showlegend = True, name = '12 day exp moving average')
+        m2 = stock_options.moving_average(list(seq), 'exponential',26)
+        trace_26 = go.Scatter(x = seq_x[26:], y = m2, mode = 'lines', showlegend = True, name = '26 day exp moving average')
+        fig.add_trace(trace_12, secondary_y = False)
+        fig.add_trace(trace_26, secondary_y = False)
+        #overlay m1, m2 onto candlestick (2 additional traces)
+        macd = np.array(m1[14:])-np.array(m2)
+        trace_macd = go.Scatter(x = seq_x[26:], y = macd, mode = 'lines', showlegend = True, name = 'MACD')
+        m3 = stock_options.moving_average(list(macd), 'exponential',9)
+        trace_macd_signal = go.Scatter(x = seq_x[35:], y = m3, mode = 'lines', showlegend = True, name = 'MACD Signal')
+        trace_macd_diff = go.Bar(x = seq_x[35:], y = macd[8:] - m3 ,showlegend = True, name = 'MACD Histogram', marker_color = 'black')
+        
+        macd_fig.add_trace(trace_macd)
+        macd_fig.add_trace(trace_macd_signal)
+        macd_fig.add_trace(trace_macd_diff)
+        #overlay macd, m3, and macd-m3 onto macd plot (3 total traces)
+        #mac-m3 will be a bar graph
+        
+        fig.add_trace(trace1,secondary_y=False,)
         fig.add_trace(trends_trace1,secondary_y = True)
         fig.add_trace(trends_trace2,secondary_y = True)
         fig.add_trace(trends_trace3,secondary_y = True)
@@ -560,8 +585,9 @@ def update_candlestick(click, date):
                                              low = [0],
                                              close = [0])], 
                         layout= {'title': 'Input ticker then click update'},)
+        macd_fig = go.Figure(data = [],layout = {'title': 'No MACD to Display'})
         
-    return fig
+    return fig,macd_fig
 
 #-----------------------------------------------------------------------------------
 #
@@ -573,7 +599,7 @@ def update_candlestick(click, date):
 
 @app.callback(
     Output(component_id = 'live-price-graph', component_property = 'figure'),
-    [Input(component_id = 'interval-component', component_property = 'n_intervals')])
+    [Input(component_id = 'interval-component', component_property = 'n_intervals')],)
 
 def update_live_price(interval):
     #updated every 1 second;

@@ -260,6 +260,10 @@ def daily_historical_trends(ticker):
     return dat
 
 def moving_average(series, avg_type, length):
+    #use closing price (typically)
+    #macd, use 12 days, 26 days, 9 days; 9 days is MA of the MA
+    #overlay 12 and 26 onto candlestick
+    #overlay 12-26(macd), 9(signal line), and  macd-signal line, displayed as bar graph
     tmp_vals = series[0:length]
     averages = []
     if avg_type == 'standard':
@@ -275,13 +279,13 @@ def moving_average(series, avg_type, length):
         alpha_list = [alpha**i for i in range(length)]
         alpha_sum = np.sum(alpha_list)
         tmp_vals.reverse()
-        averages.append(np.mean([i*j for (i,j) in zip(tmp_vals,alpha_list)])/(1-alpha))
+        averages.append(sum([i*j for (i,j) in zip(tmp_vals,alpha_list)])/(alpha_sum))
         tmp_vals.reverse()
         for k in range(length, len(series)):
             tmp_vals.pop(0)
             tmp_vals.append(series[k])
             tmp_vals.reverse()
-            averages.append(np.mean([i*j for (i,j) in zip(tmp_vals, alpha_list)])/(1-alpha))
+            averages.append(sum([i*j for (i,j) in zip(tmp_vals, alpha_list)])/(alpha_sum))
             tmp_vals.reverse()
             
     elif avg_type == 'weighted':
@@ -292,7 +296,6 @@ def moving_average(series, avg_type, length):
             tmp_list.pop(0)
             tmp_list.append(series[k])
             averages.append(sum([i*j for (i,j) in zip(alpha_list, tmp_vals)])/wma_sum)
-        
         
     return averages
         
