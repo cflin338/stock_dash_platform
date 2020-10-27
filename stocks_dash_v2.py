@@ -168,8 +168,6 @@ app.layout = html.Div(children = [
                      className = 'two columns'),
             html.Div(children = [dcc.Dropdown(id = 'analysis1-contract-strike-selection', style = {'width': 250}, options = [{'label':'','value':''}], placeholder = 'Select Strike Price', ),],
                      className = 'two columns'),
-#            html.Div(children = [dcc.Dropdown(id = 'buy-sell-options-dropdown', style = {'width': 250}, options = [{'label':'Buy','value':'Buy'}, {'label':'Sell',:'value':'Sell'}], placeholder = 'Buy/Sell', ),],
-#                     className = 'two columns'),
             html.Div(children = [html.Button(id = 'analysis1-display-options-greeks-button', n_clicks = 0, children = 'Calc Options Info')], 
                      className = 'two columns'),
             ],className = 'row', ),
@@ -234,7 +232,6 @@ app.layout = html.Div(children = [
 
 
 ])
-#implement moving average lines
 
 @app.callback(Output(component_id = 'possible-radio-items-listing', component_property = 'children'),
               Input(component_id = 'options-to-display-dropdown', component_property = 'value'))
@@ -374,7 +371,6 @@ def display_options_profitabilities_plot(clicks, values, buy_sell):
         mu = examined_stock.current_price
         sigma = np.mean(sigma_list)
         
-#        norm_distr_x = np.linspace(0, maxX, 100)
         norm_distr_x = xvals_for_profits
         norm_distr_y = stats.norm.cdf(norm_distr_x,mu,sigma)
         
@@ -533,9 +529,8 @@ def update_candlestick(click, date):
                                     low = df['low'],
                                     close = df['close'],
                                     name = 'Historical Candlestick')
-            seq = df['close'][ind:]
+            seq = df['close']
             seq_x = dates
-#            fig.add_trace(trace1, secondary_y = False)
         else:
             latest = datetime.datetime(year = latest.year, month = latest.month, day = latest.day)
             while latest not in dates:
@@ -549,7 +544,6 @@ def update_candlestick(click, date):
                                     name = 'Historical Candlestick')
             seq = df['close'][ind:]
             seq_x = dates[ind:]
-#            fig.add_trace(trace1,secondary_y=False,)
         
         m1 = stock_options.moving_average(list(seq), 'exponential',12)
         trace_12 = go.Scatter(x = seq_x[12:], y = m1, mode = 'lines', showlegend = True, name = '12 day exp moving average')

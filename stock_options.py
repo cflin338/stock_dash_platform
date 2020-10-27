@@ -54,6 +54,7 @@ def get_current_risk_free_interest_rate():
         return 0.7
 
 def years_to_maturity_calc(date):
+    #date is expiration date
     month_int = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November','December']
     month_today = month_int.index(date[0:date.index(' ')])+1
     date = date[date.index(' ')+1:]
@@ -160,12 +161,12 @@ def option_greeks(stock_price, strike_price, years_to_maturity, volatility, rate
 
 
 
-def calculate_profit(type, strike_price, current_price, option_premium, purchase_premium, option_count):
+def calculate_profit(tp, strike_price, current_price, option_premium, purchase_premium, option_count):
     profits = {'execute':-option_count*purchase_premium*100, 'sell': (option_premium - purchase_premium)*option_count*100}
     
-    if type=='call':
+    if tp=='call':
         profits['execute'] = 100*option_count*(current_price - strike_price) + profits['execute']
-    elif type == 'put':
+    elif tp == 'put':
         profits['execute'] = 100*option_count*(strike_price - current_price) + profits['execute']
     return profits
 
@@ -392,6 +393,7 @@ class stock_custom():
             self.observed_options[contract_name] = opt
         return self.observed_options
     
+
                 
     """
     ###
@@ -414,19 +416,6 @@ class stock_custom():
             self.observed_options.remove(new_opt)
     """
     
-
-    
-"""
-----daily scan----
-
-scan for low float stocks
-    -take float / outstanding... [10]/[9]
-scan for high short %
-    -[15]; % short of float, [16] % short of outstanding
-check change in float/short% values, which stocks anewly crossed threshold, 
-    which stocks had significant changes in these values
-calculate greeks and prices for all options on specified dates/ tickers
-"""
 
 """
 greeks
