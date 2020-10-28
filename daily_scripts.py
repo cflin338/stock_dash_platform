@@ -35,8 +35,8 @@ def get_options_stored(file, tab):
 def calc_existing_contracts(t, d, contracts,years_to_maturity, rate, stock_price,header1, header2, row):
     all_contracts= options.get_options_chain(t, d)
     for c in contracts:
-                #extend data row
-        if 'C' in c:
+        
+        if stock_options.option_breakdown(c)['option']=='C':
             iv = all_contracts['calls'].loc[all_contracts['calls']['Contract Name']==c]['Implied Volatility'].to_list()[0][0:-1]
             if ',' in iv:
                 iv = iv.replace(',', '')
@@ -129,12 +129,15 @@ def new_dates_calc(new_dates, stock_price, date_today, rate,historical_loc, t):
         #                                                years_to_maturity, rate, stock_price, header1, header2, row)
         
         #look through contracts not already listed; if any new contracts for the given date, calculate greeks for the new contracts and expand 'contract names' list
-        all_contracts = options.get_options_chain(t, d)
-        lst1 = all_contracts['calls']['Contract Name'].to_list()
-        lst2 = all_contracts['puts']['Contract Name'].to_list()
-        all_contracts = lst1+lst2
-        
-        header1, header2, row = calc_existing_contracts(t, d, all_contracts, years_to_maturity, rate, stock_price, header1, header2, row)
+        try:
+            all_contracts = options.get_options_chain(t, d)
+            lst1 = all_contracts['calls']['Contract Name'].to_list()
+            lst2 = all_contracts['puts']['Contract Name'].to_list() 
+            all_contracts = lst1+lst2
+            header1, header2, row = calc_existing_contracts(t, d, all_contracts, years_to_maturity, rate, stock_price, header1, header2, row)
+        except ValueError:
+            all_contracts = []
+            print('no current contracts for {}'.format(d))
         
         col_names = pd.MultiIndex.from_tuples(list(zip(*[header1, header2])))
         df = pd.DataFrame( data = [row], columns = col_names)
@@ -144,14 +147,19 @@ def new_dates_calc(new_dates, stock_price, date_today, rate,historical_loc, t):
     writer.save()
     #for each date, create new tab and write df to historical_loc + t
     return
-def daily_options_calc(tickers):
-    
-    #creating DF object for a list of contracts of a specific ticker
-    #collect values for all options contracts of a single expiration date into one row
+def daily_options_calc(target_folder, tickers):
+    #first change all tickers to uppercase
+    tickers = [i.upper() for i in tickers]
+    #first check to make sure all tickers are valid:
+    for t in tickers:
+        try:
+            si.get_live_price(t)
+        except:
+            print('')
+        
     #each ticker will have a separate excel file/collection of databases corresponding with a ticker
-    
+    historical_loc = target_folder
     #FIRST GET LIST OF TICKERS WITH DATA ALREADY COLLECTED, INTERSECT WITH LIST OF TICKERS REQUESTED
-    historical_loc = 'C:\\Users\\clin4\\Documents\\py\\stocks\\stock_dash_platform\\historical_collection\\'
     existing_tickers = [i[0:i.index('.')] for i in os.listdir(historical_loc)]
     
     new_tickers = [i for i in tickers if i not in existing_tickers]    
@@ -183,5 +191,6 @@ def daily_options_calc(tickers):
         new_dates_calc(all_dates, stock_price, date_today, rate, historical_loc, t)
     
     return 
-#daily_options_calc(['tsla', 'amd'])
-daily_options_calc(['fnko'])
+target_folder = 'C:\\Users\\clin4\\Documents\\py\\stocks\\stock_dash_platform\\historical_collection\\'
+daily_options_calc(target_folder, ['cvx', 'amd', 'aapl', 'wmt', 'mcd', 'fnko'])
+#daily_options_calc(target_folder, ['fnko'])
