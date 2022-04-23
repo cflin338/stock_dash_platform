@@ -3,10 +3,8 @@ from yahoo_fin import stock_info as si
 from plotly.subplots import make_subplots
 import stock_options
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import html, dcc, dash_table
 import pandas as pd
-import dash_table
 import plotly.graph_objs as go
 import scipy.stats as stats
 from dash.dependencies import Input, Output, State
@@ -45,6 +43,7 @@ app.layout = html.Div(children = [
         dcc.Input(id = 'rate-input', value = stock_options.get_current_risk_free_interest_rate(), type = 'number'),
         html.Button(id = 'update-ticker-info', n_clicks = 0, children = 'Start Tracking Live Price'),
         html.Button(id = 'fill-ticker-table-info', n_clicks = 0, children = 'Fill Table'),
+        
         ],
         className = 'row'),
     
@@ -223,13 +222,15 @@ app.layout = html.Div(children = [
                  className = 'row'),],
         className = 'row'
         ),
+"""
+#section for brute-forcing call/put combinations
     html.Div(children = [
         html.Div(children = [
             html.Button(id = 'search-contract-combinations',children = 'Check possible C/P combinations for Profit', n_clicks = 0),
             html.Div(id = 'optimal-search-results',)
             ])],
         className = 'row'),
-
+"""
 
 ])
 
@@ -247,6 +248,9 @@ def show_options_radioitems_buy_call(dropdown_items):
                            labelStyle = {'display': 'inline-block'}))
     return radio_list
 
+"""
+call-put brute force combinations
+
 @app.callback(Output(component_id = 'optimal-search-results', component_property = 'children'),
               Input(component_id = 'search-contract-combinations', component_property = 'n_clicks'))
 def eval_all_combinations_for_profits(clicks):
@@ -259,12 +263,12 @@ def eval_all_combinations_for_profits(clicks):
         for d in examined_stock.option_dates:
             opt = stock_options.optimal_options_combination(examined_stock.ticker, d,examined_stock.current_price, examined_stock.risk_free_rate)
             if len(opt)>0:
-                good_combination+=len(opt)
+                good_combinations+=len(opt)
                 combination_list[d] = opt
         return 'number of good combinations: {} over {} dates'.format(good_combinations, len(examined_stock.option_dates))
     else:
         return 'n/a'
-
+"""
 #
 #-----------------------------------------------------------------------------------
 #

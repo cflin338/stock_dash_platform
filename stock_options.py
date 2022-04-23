@@ -28,6 +28,21 @@
 
 """
 
+"""
+def get_current_risk_free_interest_rate():
+    #former risk rate code
+    url= 'https://ycharts.com/indicators/10_year_treasury_rate'
+    resp = requests.get(url)
+    if resp.status_code==200:
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        txt = soup.findAll('div', {'class': 'key-stat-title'})[0].get_text('self')
+        val = re.search('\d.*%', txt).__getitem__(0)
+        rate = float(val[:-1])
+        return rate
+    else:
+        return 0.7
+"""
+
 import datetime
 from scipy.stats import norm
 import numpy as np
@@ -39,19 +54,44 @@ import requests
 from bs4 import BeautifulSoup
 import re #for regex
 
-    
 
-def get_current_risk_free_interest_rate():
-    url= 'https://ycharts.com/indicators/10_year_treasury_rate'
-    resp = requests.get(url)
-    if resp.status_code==200:
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        txt = soup.findAll('div', {'class': 'key-stat-title'})[0].get_text('self')
-        val = re.search('\d.*%', txt).__getitem__(0)
-        rate = float(val[:-1])
-        return rate
+def get_current_risk_free_interest_rate(year = False, month = False, day = False):
+    #treasury site
+    today = dt.date.today()
+    url = 'https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value_month='
+    if year==False and month==False:
+        url+=str(today.year)
+        year = today.year
+        month = today.month
+        day = today.day-1
+        if today.month<10:
+            url+='0'
+        url+=str(today.month)
     else:
-        return 0.7
+        
+        url+=str(year)
+        if month<10:
+            url+='0'
+            
+        url+=str(month)
+    resp = requests.get(url)
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    IR_rows = soup.findAll('tr')
+    dates = [i.findAll('td', {'class':'views-field views-field-field-tdr-date'})[0].text[:-1] for i in IR_rows[1:]]
+    datestring = ''
+    if month<10:
+        datestring += '0'
+    datestring+=str(month)
+    datestring+='/'
+    if day<10:
+        datestring+='0'
+    datestring+=str(day)
+    datestring+='/'
+    datestring+=str(year)
+
+    table_row = IR_rows[dates.index(datestring)]
+    rate = table_row.findAll('td', {'class':'views-field views-field-field-bc-10year'})[0].text
+    return float(rate)    
 
 def years_to_maturity_calc(date):
     #date is expiration date
@@ -267,7 +307,7 @@ def moving_average(series, avg_type, length):
     #overlay 12-26(macd), 9(signal line), and  macd-signal line, displayed as bar graph
     tmp_vals = series[0:length]
     averages = []
-    if avg_type == 'standard':
+    if avg_type == 'simple':
         averages.append(np.mean(tmp_vals))
         for k in range(length,len(series)):
             tmp_vals.pop(0)
